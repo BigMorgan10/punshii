@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Punchii Battle – clash musical en temps réel ⚡</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --accent: #00ffe7;
+      --text: #ffffff;
+      --surface: #111;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",sans-serif}
+    body{background:var(--bg);color:var(--text)}
+    header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;background:var(--surface)}
+    .logo{font-weight:900;font-size:1.5rem;color:var(--accent)}
+    nav a{margin-left:1rem;color:var(--text);text-decoration:none}
+    .hero{text-align:center;padding:3rem 1rem}
+    #timer{font-size:2rem;color:var(--accent);margin-top:.5rem}
+    .battle{display:grid;grid-template-columns:1fr 1fr;gap:2rem;max-width:1000px;margin:2rem auto;padding:0 1rem}
+    .track{background:var(--surface);padding:1.5rem;border-radius:12px;text-align:center}
+    .track audio{width:100%;margin:1rem 0}
+    .btn{background:var(--accent);color:var(--bg);border:none;padding:.8rem 2rem;border-radius:25px;font-weight:700;cursor:pointer}
+    .upload-zone{border:2px dashed var(--accent);padding:2rem;margin:2rem auto;max-width:500px;text-align:center;border-radius:12px;cursor:pointer}
+    footer{text-align:center;padding:2rem;font-size:.8rem;opacity:.5}
+    @media(max-width:700px){.battle{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <header>
+    <div class="logo">⚡ PUNCHII BATTLE</div>
+    <nav>
+      <a href="#battle">Combats</a>
+      <a href="#upload">Uploader</a>
+      <a href="#shop">Boutique</a>
+    </nav>
+  </header>
+
+  <!-- HERO + TIMER -->
+  <section class="hero">
+    <h1>Clash musical en temps réel</h1>
+    <p>Dépose ton son, fais voter ta team, écrase l’adversaire.</p>
+    <div id="timer">⏳ 24:00:00</div>
+  </section>
+
+  <!-- BATTLE -->
+  <section id="battle" class="battle">
+    <div class="track">
+      <h2 id="t1">Chargement…</h2>
+      <audio id="a1" controls></audio>
+      <button class="btn" onclick="vote('p1')">🔥 Voter</button>
+    </div>
+    <div class="track">
+      <h2 id="t2">Chargement…</h2>
+      <audio id="a2" controls></audio>
+      <button class="btn" onclick="vote('p2')">💥 Voter</button>
+    </div>
+  </section>
+
+  <!-- UPLOAD -->
+  <section id="upload">
+    <h2 style="text-align:center">Uploader ton son</h2>
+    <div class="upload-zone" onclick="openFile()">
+      <p>🎵 Glisse ton MP3 ici ou clique pour sélectionner</p>
+      <input type="file" id="fileInput" accept="audio/*" style="display:none">
+    </div>
+    <input type="text" id="title" placeholder="Titre du son" style="width:100%;max-width:400px;display:block;margin:0 auto 1rem;padding:.8rem;border-radius:8px;border:none">
+    <button class="btn" style="display:block;margin:0 auto" onclick="upload()">📤 Uploader</button>
+    <p id="status" style="text-align:center;margin-top:1rem"></p>
+  </section>
+
+  <!-- BOUTIQUE RAPIDE -->
+  <section id="shop" style="max-width:600px;margin:2rem auto;text-align:center">
+    <h2>Boutique officielle</h2>
+    <div style="display:flex;gap:2rem;justify-content:center;flex-wrap:wrap">
+      <div class="track">
+        <img src="https://via.placeholder.com/200x200?text=Tee" style="width:100%;border-radius:8px">
+        <h3>Tee Punchii</h3>
+        <p>25 €</p>
+        <button class="btn" onclick="buy('tee')">Acheter</button>
+      </div>
+      <div class="track">
+        <img src="https://via.placeholder.com/200x200?text=Album" style="width:100%;border-radius:8px">
+        <h3>Album Digital</h3>
+        <p>7 €</p>
+        <button class="btn" onclick="buy('album')">Acheter</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>© 2024 Punchii Battle – propulsé par GitHub Pages + Firebase</footer>
+
+  <!-- FIREBASE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Timer 24h
+    let end = localStorage.getItem("end") || Date.now() + 24 * 3600 * 1000;
+    localStorage.setItem("end", end);
+    setInterval(() => {
+      const rest = Math.max(0, end - Date.now());
+      const h = String(Math.floor(rest / 3600000)).padStart(2, "0");
+      const m = String(Math.floor((rest % 3600000) / 60000)).padStart(2, "0");
+      const s = String(Math.floor((rest % 60000) / 1000)).padStart(2, "0");
+      document.getElementById("timer").textContent = `⏳ ${h}:${m}:${s}`;
+    }, 1000);
+
+    // Synchronisation des sons
+    onSnapshot(doc(db, "battle", "current"), snap => {
+      const d = snap.data();
+      if (!d) return;
+      ["t1", "a1", "t2", "a2"].forEach((id, i) => {
+        const key = i < 2 ? "p1" : "p2";
+        if (d[key]) {
+          document.getElementById(id).textContent = d[key].title;
+          document.getElementById(id.replace("t", "a")).src = d[key].url;
+        }
+      });
+    });
+
+    // Vote
+    window.vote = async p => {
+      if (!auth.currentUser) return alert("Connecte-toi avec Google d’abord.");
+      await setDoc(doc(db, "votes", auth.currentUser.uid), { vote: p });
+      alert("Vote enregistré !");
+    };
+
+    // Upload
+    window.openFile = () => document.getElementById("fileInput").click();
+    window.upload = async () => {
+      const file = document.getElementById("fileInput").files[0];
+      const title = document.getElementById("title").value;
+      if (!file || !title) return alert("Fichier + titre requis.");
+      const storageRef = ref(storage, file.name);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      const key = Math.random() > 0.5 ? "p1" : "p2";
+      await setDoc(doc(db, "battle", "current"), { [key]: { title, url } }, { merge: true });
+      document.getElementById("status").textContent = "✅ Upload terminé !";
+    };
+
+    // Connexion Google
+    window.login = () => signInWithPopup(auth, provider).then(() => alert("Connecté !"));
+    window.buy = product => {
+      const prices = { tee: 25, album: 7 };
+      window.open(`https://paypal.me/punchii/${prices[product]}EUR`, "_blank");
+    };
+  </script>
+</body>
+</html>
